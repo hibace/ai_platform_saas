@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>AiPlatform.Rag</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AiPlatform.Core\AiPlatform.Core.csproj" />
+  </ItemGroup>
+</Project>

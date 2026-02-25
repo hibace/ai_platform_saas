@@ -1,0 +1,20 @@
+# Кэш сборки .NET — не копировать в образ (содержит пути хоста)
+**/obj
+**/bin
+
+# IDE / OS
+**/.vs
+**/.vscode
+**/.idea
+**/*.user
+**/Thumbs.db
+**/.DS_Store
+
+# Git
+.git
+.gitignore
+
+# Прочее
+**/node_modules
+**/*.md
+**/.dockerignore

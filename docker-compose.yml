@@ -1,0 +1,130 @@
+# AI Platform infrastructure (PostgreSQL, MongoDB, Redis, Kafka).
+# Variables are loaded from .env (copy .env.example to .env and fill in).
+# Infrastructure only: docker compose up -d
+# With app: docker compose --profile app up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-platform-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: aiplatform
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7
+    container_name: ai-platform-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-platform-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  zookeeper:
+    image: bitnami/zookeeper:3.9
+    container_name: ai-platform-zookeeper
+    profiles:
+      - kafka
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: "yes"
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/bitnami/zookeeper
+
+  kafka:
+    image: bitnami/kafka:3.6
+    container_name: ai-platform-kafka
+    profiles:
+      - kafka
+    depends_on:
+      zookeeper:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    environment:
+      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/bitnami/kafka
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    image: ai-platform-api:local
+    pull_policy: never
+    container_name: ai-platform-api
+    profiles:
+      - app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://+:80
+      ConnectionStrings__Postgres: "Host=postgres;Database=aiplatform;Username=postgres;Password=${POSTGRES_PASSWORD:-postgres}"
+      ConnectionStrings__MongoDb: "mongodb://mongodb:27017"
+      ConnectionStrings__Redis: "redis:6379"
+      Llm__BaseUrl: ${LLM_BASE_URL:-http://host.docker.internal:11434}
+      Llm__ApiKey: ${LLM_API_KEY:-}
+      Llm__DefaultModel: ${LLM_DEFAULT_MODEL:-gpt-4o-mini}
+    ports:
+      - "5000:80"
+
+  ui:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ui
+    image: ai-platform-ui:local
+    pull_policy: never
+    container_name: ai-platform-ui
+    profiles:
+      - app
+    depends_on:
+      - api
+    ports:
+      - "3000:80"
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+  zookeeper_data:
+  kafka_data:

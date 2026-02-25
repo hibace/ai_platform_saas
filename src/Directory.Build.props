@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- Версия и метаданные решения -->
+    <Version>1.0.0</Version>
+    <Company>AiPlatform</Company>
+    <Product>AI Platform SaaS</Product>
+    <Copyright>Copyright © AiPlatform</Copyright>
+  </PropertyGroup>
+</Project>

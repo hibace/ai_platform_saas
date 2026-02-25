@@ -1,0 +1,20 @@
+# Build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS build
+WORKDIR /src
+COPY ["src/Directory.Build.props", "src/Directory.Packages.props", "./"]
+COPY ["src/AiPlatform.Api/AiPlatform.Api.csproj", "AiPlatform.Api/"]
+COPY ["src/AiPlatform.Agents/AiPlatform.Agents.csproj", "AiPlatform.Agents/"]
+COPY ["src/AiPlatform.Core/AiPlatform.Core.csproj", "AiPlatform.Core/"]
+COPY ["src/AiPlatform.Rag/AiPlatform.Rag.csproj", "AiPlatform.Rag/"]
+COPY ["src/AiPlatform.ControlPlane/AiPlatform.ControlPlane.csproj", "AiPlatform.ControlPlane/"]
+RUN dotnet restore AiPlatform.Api/AiPlatform.Api.csproj
+COPY src/ .
+WORKDIR /src/AiPlatform.Api
+RUN dotnet publish -c Release -o /app --no-restore
+
+# Run
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS runtime
+WORKDIR /app
+COPY --from=build /app .
+EXPOSE 80
+ENTRYPOINT ["dotnet", "AiPlatform.Api.dll"]

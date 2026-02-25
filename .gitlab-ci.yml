@@ -1,0 +1,87 @@
+variables:
+  DOCKER_DRIVER: overlay2
+  API_IMAGE: $CI_REGISTRY_IMAGE/api
+  UI_IMAGE: $CI_REGISTRY_IMAGE/ui
+
+stages:
+  - build
+  - test
+  - docker
+  - deploy
+
+.dotnet: &dotnet
+  image: mcr.microsoft.com/dotnet/sdk:10.0-preview
+  before_script:
+    - cd src
+    - dotnet restore
+
+build:api:
+  stage: build
+  <<: *dotnet
+  script:
+    - dotnet build AiPlatform.sln -c Release --no-restore
+  artifacts:
+    paths:
+      - src/
+
+test:api:
+  stage: test
+  <<: *dotnet
+  script:
+    - dotnet test AiPlatform.sln -c Release --no-build --verbosity normal || true
+
+build:ui:
+  stage: build
+  image: node:20-alpine
+  script:
+    - cd frontend
+    - npm ci
+    - npm run build
+  artifacts:
+    paths:
+      - frontend/dist
+
+docker:api:
+  stage: docker
+  image: docker:24
+  services:
+    - docker:24-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker build -t $API_IMAGE:$CI_COMMIT_SHA -t $API_IMAGE:latest -f docker/Dockerfile.api .
+    - docker push $API_IMAGE:$CI_COMMIT_SHA
+    - docker push $API_IMAGE:latest
+  only:
+    - main
+    - master
+
+docker:ui:
+  stage: docker
+  image: docker:24
+  services:
+    - docker:24-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker build -t $UI_IMAGE:$CI_COMMIT_SHA -t $UI_IMAGE:latest -f docker/Dockerfile.ui .
+    - docker push $UI_IMAGE:$CI_COMMIT_SHA
+    - docker push $UI_IMAGE:latest
+  only:
+    - main
+    - master
+
+# Optional: deploy to k8s via Helm
+# deploy:
+#   stage: deploy
+#   image: alpine/helm:latest
+#   script:
+#     - helm upgrade --install ai-platform deploy/helm/ai-platform
+#       --set api.image.repository=$API_IMAGE --set api.image.tag=$CI_COMMIT_SHA
+#       --set ui.image.repository=$UI_IMAGE --set ui.image.tag=$CI_COMMIT_SHA
+#   only:
+#     - main

@@ -1,0 +1,59 @@
+# BYOC: connect your PostgreSQL, MongoDB, Redis, Kafka and set LLM endpoint
+
+global:
+  tenantId: ""
+
+api:
+  replicaCount: 2
+  image:
+    repository: registry.example.com/ai-platform/api
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+  resources:
+    limits: { cpu: 500m, memory: 512Mi }
+    requests: { cpu: 100m, memory: 256Mi }
+  env:
+    - name: ASPNETCORE_ENVIRONMENT
+      value: Production
+    # LLM (BYOC)
+    - name: Llm__BaseUrl
+      value: "https://api.openai.com"
+    - name: Llm__ApiKey
+      valueFrom:
+        secretKeyRef:
+          name: ai-platform-secrets
+          key: llm-api-key
+    - name: Llm__DefaultModel
+      value: "gpt-4o-mini"
+
+ui:
+  replicaCount: 1
+  image:
+    repository: registry.example.com/ai-platform/ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+
+# BYOC: set connection strings to your DBs or use Bitnami subcharts
+connectionStrings:
+  postgres: "Host=postgresql;Database=aiplatform;Username=postgres;Password=changeme"
+  mongoDb: "mongodb://mongodb:27017"
+  redis: ""
+
+# Optional: Kafka for audit events
+kafka:
+  enabled: false
+
+ingress:
+  enabled: false
+  className: nginx
+  hosts:
+    - host: ai-platform.local
+  tls: []
+
+license:
+  edition: enterprise
+  features: "agents,rag,policies,audit"
